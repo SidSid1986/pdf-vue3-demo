@@ -8,7 +8,7 @@
       <input v-model.number="pageInput" class="page-input" type="number" min="1" :max="pagesCount || 1"
         @change="goToPage(pageInput)" @keydown.enter.prevent="goToPage(pageInput)" />
 
-      <span>/ {{ pagesCount || '-' }}</span>
+      <span class="page-count">/ {{ pagesCount || '-' }}</span>
 
       <button type="button" :disabled="!pagesCount || pageNumber >= pagesCount" @click="nextPage">
         下一页
@@ -112,6 +112,12 @@
       <span class="separator"></span>
 
       <button type="button" @click="downloadPdf">下载</button>
+
+      <span class="separator"></span>
+
+      <button type="button" @click="saveEditedPdfToLocal">保存本地</button>
+      <button type="button" @click="loadEditedPdfFromLocal">读取本地</button>
+      <button type="button" @click="clearEditedPdfLocal">清除本地</button>
     </header>
 
     <div class="viewer-body">
@@ -195,6 +201,78 @@ let linkService = null
 let findController = null
 let pdfViewer = null
 
+const LOCAL_DB_NAME = 'pdf-demo-db'
+const LOCAL_STORE_NAME = 'files'
+const LOCAL_EDITED_PDF_KEY = 'edited-test-pdf'
+
+function openLocalDb() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(LOCAL_DB_NAME, 1)
+
+    request.onupgradeneeded = () => {
+      const db = request.result
+      if (!db.objectStoreNames.contains(LOCAL_STORE_NAME)) {
+        db.createObjectStore(LOCAL_STORE_NAME)
+      }
+    }
+
+    request.onsuccess = () => resolve(request.result)
+    request.onerror = () => reject(request.error)
+  })
+}
+
+async function localSet(key, value) {
+  const db = await openLocalDb()
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(LOCAL_STORE_NAME, 'readwrite')
+    tx.objectStore(LOCAL_STORE_NAME).put(value, key)
+    tx.oncomplete = () => {
+      db.close()
+      resolve()
+    }
+    tx.onerror = () => {
+      db.close()
+      reject(tx.error)
+    }
+  })
+}
+
+async function localGet(key) {
+  const db = await openLocalDb()
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(LOCAL_STORE_NAME, 'readonly')
+    const request = tx.objectStore(LOCAL_STORE_NAME).get(key)
+
+    request.onsuccess = () => {
+      db.close()
+      resolve(request.result || null)
+    }
+    request.onerror = () => {
+      db.close()
+      reject(request.error)
+    }
+  })
+}
+
+async function localDelete(key) {
+  const db = await openLocalDb()
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(LOCAL_STORE_NAME, 'readwrite')
+    tx.objectStore(LOCAL_STORE_NAME).delete(key)
+    tx.oncomplete = () => {
+      db.close()
+      resolve()
+    }
+    tx.onerror = () => {
+      db.close()
+      reject(tx.error)
+    }
+  })
+}
+
 function bindEvent(name, listener) {
   const bind = eventBus?._on?.bind(eventBus) || eventBus?.on?.bind(eventBus)
   bind?.(name, listener)
@@ -258,7 +336,9 @@ function setupPdfJs() {
 async function openPdf(src) {
   await closePdf()
 
-  loadingTask = pdfjsLib.getDocument(src)
+  loadingTask = pdfjsLib.getDocument(
+    typeof src === 'string' ? src : { data: src }
+  )
   pdfDocument = await loadingTask.promise
 
   pdfViewer.setDocument(pdfDocument)
@@ -268,6 +348,7 @@ async function openPdf(src) {
   pageNumber.value = 1
   pageInput.value = 1
 }
+
 
 async function closePdf() {
   if (pdfDocument) {
@@ -368,9 +449,9 @@ function setEditorParam(type, value) {
   })
 }
 
- 
 
- 
+
+
 function setInkColor() {
   setEditorParam(AnnotationEditorParamsType.INK_COLOR, inkColor.value)
 }
@@ -430,6 +511,36 @@ function setFreeTextSize() {
     AnnotationEditorParamsType.FREETEXT_SIZE,
     freeTextSize.value
   )
+}
+
+
+async function saveEditedPdfToLocal() {
+  if (!pdfDocument) return
+
+  const data = await pdfDocument.saveDocument()
+  const buffer = data.buffer.slice(
+    data.byteOffset,
+    data.byteOffset + data.byteLength
+  )
+
+  await localSet(LOCAL_EDITED_PDF_KEY, buffer)
+  console.log('已保存编辑后的 PDF 到本地')
+}
+
+async function loadEditedPdfFromLocal() {
+  const buffer = await localGet(LOCAL_EDITED_PDF_KEY)
+
+  if (!buffer) {
+    console.warn('本地没有保存过的 PDF')
+    return
+  }
+
+  await openPdf(new Uint8Array(buffer))
+}
+
+async function clearEditedPdfLocal() {
+  await localDelete(LOCAL_EDITED_PDF_KEY)
+  console.log('已清除本地保存的 PDF')
 }
 
 
@@ -529,6 +640,12 @@ onUnmounted(async () => {
   width: 56px;
   padding: 0 6px;
 }
+
+.page-count {
+  font-size: 16px;
+}
+
+
 
 .find-input {
   width: 160px;
