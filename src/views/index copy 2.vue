@@ -57,7 +57,7 @@
       <button type="button" @click="setNoEditor">退出编辑</button>
 
       <div v-if="activeParamsPanel" class="params-popover">
-        <div v-if="activeParamsPanel === AnnotationEditorType.HIGHLIGHT">
+        <template v-if="activeParamsPanel === AnnotationEditorType.HIGHLIGHT">
           <div class="params-title">高亮色</div>
           <div class="color-row">
             <button v-for="color in highlightColors" :key="color" type="button" class="color-dot"
@@ -75,9 +75,9 @@
             显示全部
             <input v-model="highlightShowAll" type="checkbox" @change="setHighlightShowAll" />
           </label>
-        </div>
+        </template>
 
-        <div v-if="activeParamsPanel === AnnotationEditorType.FREETEXT">
+        <template v-if="activeParamsPanel === AnnotationEditorType.FREETEXT">
           <label class="popover-control">
             颜色
             <input v-model="freeTextColor" type="color" @input="setFreeTextColor" />
@@ -87,9 +87,9 @@
             字号
             <input v-model.number="freeTextSize" type="range" min="5" max="100" step="1" @input="setFreeTextSize" />
           </label>
-        </div>
+        </template>
 
-        <div v-if="activeParamsPanel === AnnotationEditorType.INK">
+        <template v-if="activeParamsPanel === AnnotationEditorType.INK">
           <label class="popover-control">
             颜色
             <input v-model="inkColor" type="color" @input="setInkColor" />
@@ -104,7 +104,7 @@
             不透明度
             <input v-model.number="inkOpacity" type="range" min="0.05" max="1" step="0.05" @input="setInkOpacity" />
           </label>
-        </div>
+        </template>
       </div>
 
 
@@ -598,13 +598,14 @@ onUnmounted(async () => {
 }
 
 .pdf-toolbar {
-  min-height: 44px;
+  height: 10vh;
   display: flex;
   align-items: center;
   gap: 6px;
   padding: 6px 8px;
   border-bottom: 1px solid #9f9f9f;
   background: #eeeeee;
+  overflow-x: auto;
   white-space: nowrap;
 }
 
@@ -663,6 +664,7 @@ onUnmounted(async () => {
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  z-index: 1;
 }
 
 .viewer-container {
@@ -702,7 +704,7 @@ onUnmounted(async () => {
   position: absolute;
   top: 42px;
   right: 120px;
-  z-index: 99999999 !important;
+  z-index: 30000 !important;
   width: 220px;
   padding: 12px;
   border: 1px solid #b9b9b9;
